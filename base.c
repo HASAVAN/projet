@@ -9,6 +9,8 @@
 
 #define TOTAL_KEYS 47 
 
+/*------------------------------------------------------------------------------------------------------------------*/
+
 void learn()
 {
     WINDOW *option_win;
@@ -108,7 +110,7 @@ void learn()
         refresh();
 }
 
-
+/*------------------------------------------------------------------------------------------------------------------*/
 
 void type()
 {
@@ -123,10 +125,13 @@ void type()
     line *textline;
 
     int i = 1 ;
-    int j = 1 , k = 0;
+    int j = 1 , k = 0 ,l = 0;
+    int last_j = 0;
     int tex = 2 , y , x , textlen = 0;
     unsigned int truec[65536];
-    int true_c = 0;
+    double true_c = 0 , false_c = 0;
+    int len;
+    double ratio;
     getmaxyx(stdscr , y , x);
 
     tbox.hei = 20;
@@ -143,13 +148,17 @@ void type()
     WINDOW *type_win;
     WINDOW *text_win;
     WINDOW *return_win;
-    WINDOW *nbrcharwin;
-    WINDOW *chronowin;
+    WINDOW *nbrchar_win;
+    WINDOW *chrono_win;
+    WINDOW *ratio_win;
+    WINDOW *wpm_win;
 
     type_win = newwin( typing.hei ,  typing.wid , typing.h , typing.w);
     text_win = newwin( tbox.hei ,  tbox.wid , tbox.h , tbox.w);
-    nbrcharwin = newwin( 4 , 70 ,tbox.hei + 11 , 1);
-    chronowin = newwin(3 , 20 , 1 , tbox.wid+1);
+    nbrchar_win = newwin( 4 , 70 ,tbox.hei + 11 , 1);
+    chrono_win = newwin(3 , 20 , 1 , tbox.wid+1);
+    ratio_win = newwin(5 , 30 , 4 , tbox.wid+1);
+    wpm_win = newwin(5 , 30 , 10 , tbox.wid+1);
 
     refresh();
     start_color();
@@ -169,32 +178,36 @@ void type()
 
     textline = malloc(sizeof(line)*512);
 
-    i = 1 ;
     while(fgets( faketext, 255 ,text_to_type))
     {
         strcat(realtext , faketext);
         strcpy(textline[i].t_line , faketext);
-        mvwprintw(text_win , i , 1 , "%s" ,textline[i].t_line);
         for(j = 0 ; j < 256 ;j++)
         {
             if(textline[i].t_line[j] == '\n')
             {
+                mvwprintw(text_win , i , 1, "%s",faketext);
+                wrefresh(text_win);
                 i++;
+                break;
             }
         }
-        j = 1;
         refresh();
     }
 
-    j = 1;
+    j = 0;
     i = 1 ;
-
     wrefresh(text_win);
 
     while(realtext[textlen] != '\0')
     {
+        if(realtext[textlen] == '\n')
+        {            
+            len++;
+        }
         textlen++;
     }
+    textlen = textlen - len;
 
     wrefresh(text_win);
     refresh();
@@ -206,153 +219,173 @@ void type()
     int elapsed_time;
     time(&start_time);
 
-        wrefresh(chronowin);
-        wrefresh(nbrcharwin);
+        wrefresh(chrono_win);
+        wrefresh(nbrchar_win);
+        wrefresh(ratio_win);
+
+                            for(l = 0 ; l < 20 ;l++)
+                            {
+                                mvwprintw(text_win , l , 1, "%s",textline[l].t_line);
+                                l++;
+                            }
+                                        for(k = 0 ; k < textlen ; k++)
+                                        {
+                                            box(type_win , 0 , 0);
+                                            box(text_win , 0 , 0);
+                                            box(chrono_win , 0 , 0);
+                                            box(nbrchar_win , 0 , 0);
+                                            box(ratio_win , 0 , 0);
+                                            box(wpm_win , 0 , 0);
+
+                                            wrefresh(type_win);
+                                            wrefresh(text_win);
+                                            wrefresh(chrono_win);
+                                            wrefresh(nbrchar_win);
+                                            wrefresh(ratio_win);
+                                            wrefresh(wpm_win);
+
+                                            time(&current_time);
+                                            elapsed_time = difftime(current_time, start_time);
+                                            
+
+                                            int minutes = (int)(elapsed_time / 60);
+                                            int seconds = (int)(elapsed_time % 60);
+                                            int words_per_second = elapsed_time;
+
+                                            wrefresh(chrono_win);
+                                            refresh();
+                                            mvwprintw(chrono_win , 1 , 1 , "Compteur : %02d:%02d", minutes, seconds);
+                                            mvwprintw(ratio_win , 1 , 1 ,"ratio d'erreur : ");
+
+                                            if(false_c != 0 && true_c !=0)
+                                            {
+                                                mvwprintw(ratio_win , 2 , 1 ," %.2lf%%" ,  (false_c / textlen)*100);
+                                            }
+                                            mvwprintw(ratio_win , 3 , 1 ,"%.0f erreur(s)" ,false_c);
+
+                                            wrefresh(chrono_win);
+                                            refresh();
+                                    
+                                            if(textline[i].t_line[j] == '\n')
+                                            {
+                                                i++;
+                                                last_j = j - 1;
+                                                j = 0;
+                                            }
+                                            refresh();
+                                            curs_set(1);
+                                            mvwprintw(nbrchar_win , 1 , 1 , "le nombre de caracteres correct est %.0f sur %d", true_c , textlen);
+                                            wrefresh(nbrchar_win);
+                                            
+
+                                            mvwprintw(wpm_win , 1 , 1 , "Vitesse de frappes :(par seconde)");
+                                            mvwprintw(wpm_win , 2 , 1 , "%.2fmots/secondes", (double)(k) / ((double)(words_per_second) * 5));
+                                            
+                                            typed = getch();
+                                            true_c = 0;
+                                            false_c = 0 ;
+
+                                            for(int temp = 0 ; temp < k ; temp++)
+                                            {
+                                                if(truec[temp] == 1)
+                                                {
+                                                    true_c++;
+                                                }
+                                                else if(truec[temp] == 0)
+                                                {
+                                                    false_c++;
+                                                }
+                                            }
+
+                                    
+                                            refresh();
+                                            mvwprintw(type_win , i , j+1 , "%c" , typed);
 
 
-    for(k = 0 ; k < textlen ; k++)
-    {
-        box(type_win , 0 , 0);
-        box(text_win , 0 , 0);
-        box(chronowin , 0 , 0);
-        box(nbrcharwin , 0 , 0);
+                                            if(typed == textline[i].t_line[j])
+                                            {
+                                                truec[k] = 1;
+                                                wattron(text_win , A_REVERSE | COLOR_PAIR(1) );
+                                                mvwprintw(text_win ,i ,j+1 , "%c" ,textline[i].t_line[j]);
+                                                wattroff(text_win , A_REVERSE | COLOR_PAIR(1));
 
-        wrefresh(type_win);
-        wrefresh(text_win);
-        wrefresh(chronowin);
-        wrefresh(nbrcharwin);
+                                                wrefresh(type_win);
+                                                refresh();
+                                                j++;
+                                            }
 
-        curs_set(1);
-        typed = getch();
+                                            else if(typed == 127)
+                                            {
+                                                truec[k] = 2;
+                                                if(i > 0)
+                                                {
+                                                    if(j >= 0)
+                                                    {
+                                                        j--;
+                                                        k--;
+                                                        wmove(type_win ,i , j);
+                                                        wmove(text_win ,i , j);
+                                                        wdelch(type_win);
 
-        box(text_win , 0 , 0);
-        box(type_win , 0 , 0);
-        box(nbrcharwin , 0 , 0);
-        true_c = 0;
-        for(int temp = 0 ; temp < k ; temp++)
-        {
-            if(truec[temp] == 1)
-            {
-                true_c++;
-            }
-        }
+                                                        wattron(text_win , A_REVERSE);
+                                                        mvwprintw(text_win , i , j+1  , "%c", textline[i].t_line[j]);
+                                                        wattroff(text_win , A_REVERSE);
 
-        time(&current_time);
-        elapsed_time = difftime(current_time, start_time);
+                                                        wrefresh(text_win);
+                                                        wrefresh(type_win);
+                                                        refresh();
+                                                    }
 
-        int minutes = (int)(elapsed_time / 60);
-        int seconds = (int)(elapsed_time % 60);
-        
-        mvwprintw(chronowin , 1 , 1 , "Compteur : %02d:%02d", minutes, seconds);
-        wrefresh(chronowin);
-        refresh();
-        mvwprintw(nbrcharwin , 1 , 1 , "le nombre de caracteres correct est %d sur %d", true_c , textlen);
- 
-        refresh();
-        mvwprintw(type_win , i , j , "%c" , typed);
+                                                    else if(j = -1)
+                                                    {
+                                                        i--;
+                                                        k--;
+                                                        j = last_j;                  
+                                                        wmove(text_win ,i , j);
+                                                        wmove(type_win ,i , j);
+                                                        
+                                                        wattron(text_win , A_REVERSE);
+                                                        mvwprintw(text_win , i , j+1  , "%c", textline[i].t_line[j]);
+                                                        wattroff(text_win , A_REVERSE);
 
-        if(realtext[k] == '\n')
-        {
-            i++;
-            mvwprintw(text_win , i , 1 , "%s" ,textline[i].t_line);
-            wrefresh(text_win);
-            j=1;
-        }
+                                                        wrefresh(text_win);
+                                                        wrefresh(type_win);
+                                                        refresh();
+                                                    }
+                                                }
+                                            }
 
-        if(typed == realtext[k])
-        {
-            if(j > 119)
-            {
-                i++;
-            }
-            else if(j < 0)
-            {
-                j = 1;
-            }
-            truec[k] = 1;
-            wattron(text_win , A_REVERSE | COLOR_PAIR(1) );
-            mvwprintw(text_win ,i ,j , "%c" ,realtext[k]);
-            wattroff(text_win , A_REVERSE | COLOR_PAIR(1));
+                                            else if(typed == 10)
+                                            {
+                                                refresh();
+                                            }
 
-            j++;
-            wrefresh(type_win);
-            refresh();
-        }
+                                            else if(typed == 27)
+                                            {
+                                                break;
+                                                refresh();
+                                            }
 
-        else if(typed == 127)
-        {
-            truec[k] = 0;
-            if(i > 1)
-            {
-                if(j > 0)
-                {
-                    j--;
-                    k-=2;
- 
-                    wmove(type_win ,i , j);
-                    wdelch(type_win);
+                                            else if(typed != textline[i].t_line[j])
+                                            {
+                                                truec[k] = 0;
 
-                    wattron(text_win , A_REVERSE);
-                    mvwprintw(text_win , i , j  , "%c", realtext[k+1]);
-                    wattroff(text_win , A_REVERSE);
+                                                wattron(text_win, A_REVERSE | COLOR_PAIR(2));
+                                                mvwprintw(text_win , i , j+1 ,"%c" , textline[i].t_line[j]);
+                                                wattroff(text_win,A_REVERSE | COLOR_PAIR(2));
+                                        
+                                                j++;
+                                                wrefresh(type_win);
+                                                refresh();
+                                            }
+                                            wrefresh(type_win);
+                                            wrefresh(text_win);
+                                            wrefresh(chrono_win);
+                                            wrefresh(nbrchar_win);
+                                            wrefresh(ratio_win);
+                                            wrefresh(wpm_win);
 
-                    wrefresh(text_win);
-                    wrefresh(type_win);
-                    refresh();
-                }
-
-                else if(j = 0)
-                {
-                    i--;
-                    j = 1;                     
-                    k = 0;
-                    wmove(type_win ,i , j);
-                    
-                    wattron(text_win , A_REVERSE);
-                    mvwprintw(text_win , i , j  , "%c", realtext[k]);
-                    wattroff(text_win , A_REVERSE);
-
-                    wrefresh(text_win);
-                    wrefresh(type_win);
-                }
-            }
-        }
-
-        else if(typed == 10)
-        {
-            j = 1;
-            i++;
-            refresh();
-        }
-
-        else if(typed == 27)
-        {
-            break;
-            refresh();
-        }
-
-        else if(typed != realtext[k])
-        {
-            if(j > 119)
-            {
-                i++;
-                j = 1;
-            }
-            truec[k] = 0;
-
-            wattron(text_win, A_REVERSE | COLOR_PAIR(2));
-            mvwprintw(text_win , i , j ,"%c" , realtext[k]);
-            wattroff(text_win,A_REVERSE | COLOR_PAIR(2));
-     
-            j++;
-            wrefresh(type_win);
-            refresh();
-        }
-            wrefresh(chronowin);
-            wrefresh(nbrcharwin);
-            wrefresh(type_win);
-            wrefresh(text_win);
-            }
+                                                }
         
             delwin(type_win);
             delwin(text_win);
@@ -360,9 +393,9 @@ void type()
             touchwin(stdscr);
         
             refresh();
-            wrefresh(nbrcharwin);
+            wrefresh(nbrchar_win);
             refresh();
-            delwin(nbrcharwin);
+            delwin(nbrchar_win);
             refresh();
             touchwin(stdscr);
 
